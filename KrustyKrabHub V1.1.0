@@ -37,12 +37,13 @@ local Window = Rayfield:CreateWindow({
  -- MAIN TAB --
  local MainTab = Window:CreateTab("Main", nil) -- Title, Image
 
-local ESPEnabled = false
-local ESPTracerEnabled = false
-local HighlightedParts = {}
-local Tracers = {}
-local Player = game.Players.LocalPlayer  -- The player who is toggling the ESP
-local Teams = game:GetService("Teams")  -- Access to the Teams service
+ local ESPEnabled = false
+ local ESPTracerEnabled = false  -- This is the tracer toggle
+ local HighlightedParts = {}
+ local Tracers = {}
+ local Player = game.Players.LocalPlayer
+ local Teams = game:GetService("Teams")
+ local CurrentESPColor = Color3.fromRGB(139, 0, 0) -- Default dark red
 
 -- Helper function to create an outline box (using BillboardGui for visibility through walls)
 local function CreateOutline(player)
@@ -50,40 +51,34 @@ local function CreateOutline(player)
     if character and character:FindFirstChild("UpperTorso") then
         local upperTorso = character:FindFirstChild("UpperTorso")
 
-        -- Create the BillboardGui for ESP (will make it visible through walls)
         local function createBillboard(size, parent)
             local billboardGui = Instance.new("BillboardGui")
             billboardGui.Adornee = parent
             billboardGui.Parent = parent
             billboardGui.Size = UDim2.new(0, size.X, 0, size.Y)
-            billboardGui.StudsOffset = Vector3.new(0, 0, 0)  -- Place inside the torso (no offset above)
+            billboardGui.StudsOffset = Vector3.new(0, 0, 0)
             billboardGui.AlwaysOnTop = true
-            billboardGui.MaxDistance = 1000  -- Make it visible from a distance
+            billboardGui.MaxDistance = 1000
             billboardGui.Enabled = ESPEnabled
 
-            -- Create the frame that will act as the box around the player (darker)
             local frame = Instance.new("Frame")
             frame.Parent = billboardGui
             frame.Size = UDim2.new(0, size.X, 0, size.Y)
-            frame.BackgroundColor3 = Color3.fromRGB(139, 0, 0)  -- Dark Red color
-            frame.BackgroundTransparency = 0.4  -- Less transparent for darker box
-            frame.BorderSizePixel = 2  -- Thin border for a more distinctive outline
-            frame.BorderColor3 = Color3.fromRGB(139, 0, 0)  -- Dark Red border
+            frame.BackgroundColor3 = CurrentESPColor -- Use the current ESP color
+            frame.BackgroundTransparency = 0.4
+            frame.BorderSizePixel = 2
+            frame.BorderColor3 = CurrentESPColor -- Use the current ESP color
 
             return billboardGui
         end
 
-        -- Creating outline for the torso (box around the torso)
         local torsoBox = createBillboard(Vector2.new(20, 20), upperTorso)
-        
-        -- Store the billboard outlines in the table for later removal
         HighlightedParts[player] = {torsoBox}
 
-        -- Update the position of the ESP part every frame to follow the player
         game:GetService("RunService").Heartbeat:Connect(function()
             if character and character.Parent then
                 if upperTorso and upperTorso.Parent then
-                    torsoBox.StudsOffset = Vector3.new(0, 0, 0)  -- Position the ESP box inside the torso
+                    torsoBox.StudsOffset = Vector3.new(0, 0, 0)
                 end
             end
         end)
@@ -94,7 +89,7 @@ end
 local function UnhighlightPlayer(player)
     if HighlightedParts[player] then
         for _, billboardGui in ipairs(HighlightedParts[player]) do
-            billboardGui.Parent = nil  -- Unparent the BillboardGui to remove it from the game
+            billboardGui.Parent = nil
         end
         HighlightedParts[player] = nil
     end
@@ -109,31 +104,26 @@ local function CreateTracer(player)
         if myCharacter and myCharacter:FindFirstChild("UpperTorso") then
             local myUpperTorso = myCharacter:FindFirstChild("UpperTorso")
 
-            -- Create a part to serve as the tracer line
             local line = Instance.new("Part")
-            line.Size = Vector3.new(0.2, 0.2, 0.2)  -- Small part for visualizing the line
+            line.Size = Vector3.new(0.2, 0.2, 0.2)
             line.Anchored = true
             line.CanCollide = false
-            line.Color = Color3.fromRGB(255, 0, 0)  -- Red color for the line
+            line.Color = Color3.fromRGB(255, 0, 0) -- Red color for the line (can be customized)
             line.Parent = game.Workspace
 
-            -- Store the line for later removal
             Tracers[player] = line
 
-            -- Update the line position every frame to keep it in sync with the ESP box
             game:GetService("RunService").Heartbeat:Connect(function()
                 if myCharacter and myCharacter.Parent and upperTorso and upperTorso.Parent then
-                    local startPosition = myUpperTorso.Position + Vector3.new(0, 1.5, 0)  -- Start position slightly above head
-                    local endPosition = upperTorso.Position + Vector3.new(0, 2, 0)  -- End position above the torso
-                    -- Set line's position and direction
+                    local startPosition = myUpperTorso.Position + Vector3.new(0, 1.5, 0)
+                    local endPosition = upperTorso.Position + Vector3.new(0, 2, 0)
                     local direction = (endPosition - startPosition).unit
                     local distance = (endPosition - startPosition).Magnitude
                     line.CFrame = CFrame.new(startPosition, endPosition)
-                    line.Size = Vector3.new(0.2, 0.2, distance)  -- Adjust the size to fit the distance
+                    line.Size = Vector3.new(0.2, 0.2, distance)
 
-                    -- Stop the tracer once it's connected (from the owner to the player)
                     if distance <= 0.2 then
-                        line.Size = Vector3.new(0.2, 0.2, 0.2)  -- Make the line stop at the connection point
+                        line.Size = Vector3.new(0.2, 0.2, 0.2)
                     end
                 end
             end)
@@ -144,18 +134,18 @@ end
 -- Remove the tracer line for a player
 local function RemoveTracer(player)
     if Tracers[player] then
-        Tracers[player]:Destroy()  -- Destroy the part representing the tracer line
+        Tracers[player]:Destroy()
         Tracers[player] = nil
     end
 end
 
+
 -- Check if the player is on the same team or an enemy team
 local function IsEnemyTeam(player)
-    -- In Arsenal, teams are usually "Red" or "Blue"
     local playerTeam = player.Team
     local localPlayerTeam = Player.Team
 
-    return playerTeam ~= localPlayerTeam  -- Return true if the player is on an enemy team
+    return playerTeam ~= localPlayerTeam
 end
 
 -- Aimbot feature: Find closest enemy and lock onto the middle of their ESP box (with 45° FOV)
@@ -288,7 +278,6 @@ local function LockOntoClosestEnemy()
     end
 end
 
--- Toggle ESP on/off
 local Toggle = MainTab:CreateToggle({
     Name = "ESP",
     CurrentValue = false,
@@ -296,41 +285,93 @@ local Toggle = MainTab:CreateToggle({
     Callback = function(Value)
         ESPEnabled = Value
 
-        -- Toggle ESP on or off for all players
         for _, player in pairs(game.Players:GetPlayers()) do
             if player.Character and player.Character:FindFirstChild("UpperTorso") and IsEnemyTeam(player) then
                 if ESPEnabled then
                     CreateOutline(player)
+                    if ESPTracerEnabled then -- Only create tracer if the tracer toggle is on
+                        CreateTracer(player)
+                    end
                 else
                     UnhighlightPlayer(player)
+                    RemoveTracer(player)
                 end
             end
         end
     end,
 })
 
--- Toggle ESP Tracer on/off
-local ToggleTracer = MainTab:CreateToggle({
-    Name = "ESP Tracer",
-    CurrentValue = false,
-    Flag = "Toggle2",
-    Callback = function(Value)
-        ESPTracerEnabled = Value
+local Dropdown = MainTab:CreateDropdown({
+    Name = "Esp Color",
+    Options = {"Default (red)","Purple", "Blue", "Green", "Yellow"},
+    CurrentOption = {"Option 1"},
+    MultipleOptions = false,
+    Flag = "Dropdown1",
+    Callback = function(Options)
+        local selectedColor = Options[1]
 
-        -- Toggle Tracers on or off for all players
-        if ESPTracerEnabled then
+        if selectedColor == "Default (red)" then
+            CurrentESPColor = Color3.fromRGB(139, 0, 0)
+        elseif selectedColor == "Purple" then
+            CurrentESPColor = Color3.fromRGB(128, 0, 128)
+        elseif selectedColor == "Blue" then
+            CurrentESPColor = Color3.fromRGB(0, 0, 255)
+        elseif selectedColor == "Green" then
+            CurrentESPColor = Color3.fromRGB(0, 255, 0)
+        elseif selectedColor == "Yellow" then
+            CurrentESPColor = Color3.fromRGB(255, 255, 0)
+        end
+
+        if ESPEnabled then
             for _, player in pairs(game.Players:GetPlayers()) do
                 if player.Character and player.Character:FindFirstChild("UpperTorso") and IsEnemyTeam(player) then
-                    CreateTracer(player)  -- Create tracer line if ESP is enabled and tracer is toggled on
+                    UnhighlightPlayer(player)
+                    CreateOutline(player)
                 end
-            end
-        else
-            for _, player in pairs(game.Players:GetPlayers()) do
-                RemoveTracer(player)  -- Remove the tracer lines if ESP Tracer is toggled off
             end
         end
     end,
 })
+
+-- Initialize ESP and Tracers for players already in the game
+game.Players.PlayerAdded:Connect(function(player)
+    if player ~= Player and IsEnemyTeam(player) and ESPEnabled and player.Character and player.Character:FindFirstChild("UpperTorso") then
+        CreateOutline(player)
+        if ESPTracerEnabled then
+            CreateTracer(player)
+        end
+    end
+end)
+
+for _, player in pairs(game.Players:GetPlayers()) do
+    if player ~= Player and IsEnemyTeam(player) and ESPEnabled and player.Character and player.Character:FindFirstChild("UpperTorso") then
+        CreateOutline(player)
+        if ESPTracerEnabled then
+            CreateTracer(player)
+        end
+    end
+end
+
+-- ESP Tracer Toggle
+local TracerToggle = MainTab:CreateToggle({
+    Name = "ESP Tracers",
+    CurrentValue = false,
+    Flag = "TracerToggle",
+    Callback = function(Value)
+        ESPTracerEnabled = Value
+        if ESPEnabled then -- Update tracers only if ESP is also enabled
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player.Character and player.Character:FindFirstChild("UpperTorso") and IsEnemyTeam(player) then
+                    RemoveTracer(player) -- Remove old tracers
+                    if ESPTracerEnabled then
+                        CreateTracer(player) -- Add new tracers if enabled
+                    end
+                end
+            end
+        end
+    end,
+})
+
 
 -- Toggle Aimbot on/off
 local ToggleAimbot = MainTab:CreateToggle({
